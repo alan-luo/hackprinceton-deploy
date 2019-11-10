@@ -1,0 +1,151 @@
+<html>
+	<head>
+		{% block head %}
+		<link href="https://fonts.googleapis.com/css?family=Lato:300,400,700|Noto+Serif+JP:400,700&display=swap" rel="stylesheet">
+		<link rel="stylesheet" href="../static/css/style.css">
+		<link rel="stylesheet" href="../static/css/icomoon.css">
+		<script
+		  src="https://code.jquery.com/jquery-3.4.1.slim.min.js"
+		  integrity="sha256-pasqAKBDmFT4eHoN2ndd6lN370kFiGUFyTiUHWhU7k8="
+		  crossorigin="anonymous"></script>
+		<script src="../static/js/data.js"></script>
+
+		<title>{% block title %}{% endblock %}</title>
+		{% endblock %}
+	</head>
+	<body>
+		<div class="header">
+			<div class="logo"><a href="/"><h1>News Aggregator</h1></a></div>
+
+			<div class="search"><input id="searchbar" type="text" placeholder="Try 'articles about bitcoin from the left'" value="{% if query is not none %}{{ query }}{% endif %}"></div>
+
+			<div class="graph-link">
+				<a href="/viz">
+					<span class="icon-stats-dots"></span>
+				</a>
+			</div>
+		</div>
+		<script>
+			var data = {};
+			function getStorage() {
+				data = JSON.parse(localStorage.getItem('our-data'));
+				if(!data) data = {};
+				if(!data.clicks) data.clicks = {};
+				if(!data.votes) data.votes = {};
+			}
+			function setStorage() {
+				localStorage.setItem('our-data',JSON.stringify(data));
+			}
+			getStorage();
+		</script>
+		<div class="container">
+			{% block content %}
+			{% endblock %}
+		</div>
+
+		<script>
+			
+			function filter(streamid) {
+				console.log("filtering on "+streamid);
+				var filters = [];
+				$(`.filterlist[data-streamid="${streamid}"]`).children().each(function() {
+					filters.push($(this).text());
+				});
+				console.log(filters);
+				var stream = $(`.stream[data-streamid="${streamid}"]`);
+				stream.children().each(function() {
+					$(this).show();
+					for(var i=0; i<filters.length; i++) {
+						if(filters[i].substring(0,6) == "within") {
+							number_days = parseInt(filters[i].split()[1]);
+							// testvar = $(this).children();
+							var daystr = $(this).children().get(2).textContent.split("| ")[1].split(" ");
+							if(daystr[1] == "days" || daystr[0] == "day") {
+								if(parseInt(daystr[0]) > parseInt(filters[i].split(" ")[1])) {
+									$(this).hide();
+								}
+							}
+						} else {
+							if($(this).text().toLowerCase().match(new RegExp(filters[i].toLowerCase()),"g") == null) {
+								$(this).hide();
+							}
+						}
+					}
+				});
+			}
+
+			function updateFromVotes() {
+				for(key in data.clicks) {
+					if(data.clicks[key] == 1 || data.clicks[key] == -1) {
+						var arrows = $(`a[href="${key}"]`).parent().parent().parent().children().last().children().last().children();
+						if(data.clicks[key] == 1) {
+							arrows.first().css('color','#ff4a4a');
+							arrows.last().css('color','black');
+						} else {
+							arrows.first().css('color','black');
+							arrows.last().css('color','#0099ff');
+						}
+					}
+				}
+			}
+
+			window.onload = function() {
+				$(".filter-input").keypress(function(e) {
+					if(e.keyCode == 13) {
+						var myfilter = $(this).val();
+						var filtertext = myfilter;
+
+						if(myfilter.match(/[0-9]+ days*/) != null) {
+							filtertext = `<b>within</b> ${myfilter}`;
+						}
+						var streamid = $(this).attr("data-streamid");
+						var filterspan = $(`<span>${filtertext}</span>`).click(function() {
+							var myid = $(this).parent().attr("data-streamid");
+							$(this).remove();
+							filter(myid);
+						});
+						$(`.filterlist[data-streamid="${streamid}"]`).append(filterspan);
+						$(this).val("");
+						filter(streamid);
+					}
+				});
+				$("#searchbar").keydown(function(e) {
+					if(e.keyCode == 13) {
+						window.location.href = "/query/"+$(this).val();
+					}
+				});
+				$(".icon-arrow-up").click(function() {
+					//first save if it's been clicked
+					var href = $(this).parent().parent().parent().children().first().children().children().first().attr("href");
+					data.clicks[href] = 1;
+					console.log(href);
+
+
+					//then update for the website
+					var id = $(this).parent().attr("data-sourceid");
+					console.log(id);
+					if(!data.votes[id]) data.votes[id] = 0;
+					data.votes[id]++;
+					setStorage();
+					updateFromVotes();
+				});
+				$(".icon-arrow-down").click(function() {
+					//first save if it's been clicked
+					var href = $(this).parent().parent().parent().children().first().children().children().first().attr("href");
+					data.clicks[href] = -1;
+					console.log(href);
+
+
+					//then update for the website
+					var id = $(this).parent().attr("data-sourceid");
+					console.log(id);
+					if(!data.votes[id]) data.votes[id] = 0;
+					data.votes[id]--;
+					setStorage();
+					updateFromVotes();
+				});
+				updateFromVotes();
+			};
+		</script>
+	</body>
+</html>
